@@ -1,0 +1,25 @@
+{
+  "name": "deathrowdataset",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "after-load": "^1.0.4",
+    "cheerio": "^1.0.0-rc.2",
+    "htmlparser2": "^3.9.2",
+    "image-size": "^0.6.1",
+    "images": "^3.0.0",
+    "jimp": "^0.2.28",
+    "jquery": "^3.2.1",
+    "parse5": "^3.0.2",
+    "rxjs": "^5.4.2"
+  },
+  "devDependencies": {
+    "download-image": "^1.0.1"
+  }
+}
