@@ -13,6 +13,7 @@
     "after-load": "^1.0.4",
     "cheerio": "^1.0.0-rc.2",
     "htmlparser2": "^3.9.2",
+    "image-downloader": "^3.3.0",
     "image-size": "^0.6.1",
     "images": "^3.0.0",
     "jimp": "^0.2.28",
