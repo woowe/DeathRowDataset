@@ -11,80 +11,89 @@ var wait_for_handle = null;
 
 var $exitPhantom = new Subject();
 
+var $script_loaded = new Subject();
+var $console_out = new Subject();
+var $start = $console_out.switchMap(function(o) { return Observable.timer(1000) });
+
 $exitPhantom.subscribe(function() {
     phantom.exit();
 });
 
-function waitFor ($config) {
-    $config._start = $config._start || new Date();
-
-    if ($config.timeout && new Date - $config._start > $config.timeout) {
-        if ($config.error) $config.error();
-        if ($config.debug) console.log('timedout ' + (new Date - $config._start) + 'ms');
-        return;
-    }
-
-    if ($config.check()) {
-        if ($config.debug) console.log('success ' + (new Date - $config._start) + 'ms');
-        return $config.success();
-    }
-
-    setTimeout(waitFor, $config.interval || 0, $config);
-}
-
-var counter_text = $("#paintingCountBlock").text();
-var matches = counter_text.match(/^1-(.*) out of (.*)$/);
-
-var current = parseInt(matches[1]);
-var max = parseInt(matches[2]);
-
-console.log(current, ' out of ', max);
-
-if(current >= max) {
-    return false;
-}
-
-$('#btn-more').trigger('click');
-
-return true;
-
 page.open('https://www.wikiart.org/en/paintings-by-style/abstract-art', function () {
     page.includeJs("https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js", function () {
-        var load_more = true;
+        console.log('Script loaded');
+        $script_loaded.next(true);
+    });
 
-        // load all images
-        let $load_images = Observable.create(function(observer) { 
-            waitFor({
-                debug: true,  // optional
-                interval: 100,  // optional
-                check: function () {
-                    return page.evaluate(function() {
-                        return $('#thediv').is(':visible');
-                    });
-                },
-                success: function () {
-                    // we have what we want
-                    observer.next();
-                },
-                error: function() {
-                    observer.error();
+    $console_out
+        .merge($script_loaded)
+        .debounceTime(1000)
+        .take(1)
+        .subscribe(function() {
+            console.log('starting');
+            
+            var $loaded_images = new Subject();
+            var $load_images = Observable.create(function(observer) {
+                var ret = page.evaluate(function() {
+                    var text = $('#paintingCountBlock').text();
+                    
+                    var matches = text.match(/1-(.*) out of (.*)/);
+
+                    var current = parseInt(matches[1]);
+                    var max = parseInt(matches[2]);
+
+                    console.log(current, ' out of ', max);
+
+                    if(current >= max) {
+                        return false;
+                    }
+
+                    $('#btn-more').trigger('click');
+
+                    return true;
+                });
+
+                if(ret) {
+                    observer.next(ret);
+                } else {
+                    observer.complete(ret);
+                    $loaded_images.next(true);
                 }
             });
+
+            $console_out.debounceTime(750)
+                .startWith(null)
+                .switchMap(function() { return $load_images })
+                .takeUntil($loaded_images)
+                .subscribe(function() {});
+            
+            $loaded_images
+                .subscribe(function(ret) {
+                    console.log('Complete!!!!!! --------------------------------');
+
+                    var image_urls = page.evaluate(function() {
+                        var urls = [];
+
+                        $('.st-masonry-tile img').each(function(i, e) {
+                            var src_url = $(e).attr('src');
+                            var real_url = src_url.replace(/#?!(.*)$/, '');
+
+                            urls.push(real_url);
+                        });
+
+                        return urls;
+                    });
+
+                    console.log('Urls: ', image_urls.length);
+
+                    fs.write('image_urls.json', JSON.stringify(image_urls), 'w');
+
+                    $exitPhantom.next(true);
+                });
         });
-
-        // retrive all images
-        $retrived_images = $load_images
-            .map(function(){
-            });
-
-        // save images
-        $retrived_images.subscribe(function(images) {
-
-            $exitPhantom.next(true);
-        })
-    });
 });
 
 page.onConsoleMessage = function (msg) {
     system.stderr.writeLine('[INFO]: ' + msg);
+    $console_out.next(true);
 };
