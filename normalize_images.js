@@ -4,7 +4,7 @@ const fs = require('fs'),
       imgSize = require('image-size');
 
 let opts = {
-    'IMAGE_SIZE': 512,
+    'IMAGE_SIZE': 128,
     'DATASET_PATH': './Data/images/'
 };
 
@@ -39,40 +39,50 @@ let images = fs.readdirSync(opts.DATASET_PATH)
 let $normalize_images = Rx.Observable.create((observer) => {
     if(images.length === 0) {
         console.log('Complete');
-        observer.complete({image_info: null});
+        observer.next({image_info: null});
+        observer.complete();
     }
 
     let image_info = images.pop();
 
+    let then = image => {
+        if(image.bitmap.width >= opts.IMAGE_SIZE && image.bitmap.height >= opts.IMAGE_SIZE) {
+            console.log('Resizing ...', image_info.file_name, ' +++ ', image.bitmap.width, 'x', image.bitmap.height);
+            console.log('Saving to...', normalize_path + '/' + image_info.file_name);
+            image.cover(opts.IMAGE_SIZE, opts.IMAGE_SIZE)
+                .quality(100)
+                .write(normalize_path + '/' + image_info.file_name);
+        }
+        observer.next(image_info);
+    };
+
     jimp.read(opts.DATASET_PATH + image_info.file_name)
-        .then(image => {
-            if(image.bitmap.width >= opts.IMAGE_SIZE && image.bitmap.height >= opts.IMAGE_SIZE) {
-                console.log('Resizing... ', image_info.file_name, ' +++ ', image.bitmap.width, 'x', image.bitmap.height);
-                console.log('Saving to...', normalize_path + '/' + image_info.file_name);
-                image.cover(opts.IMAGE_SIZE, opts.IMAGE_SIZE)
-                    .quality(100)
-                    .write(normalize_path + '/' + image_info.file_name);
-            }
-            observer.next({image_info});
-        })
+        .then(then)
         .catch(err => console.log(image_info.file_name, '\nError ', err))
 });
 
-$normalize_images
+// $normalize_images
+    // .toArray()
     // .last()
-    .take(images.length)
-    .subscribe(({image_info}) => {
-        // console.log('Finished!');
-    });
+    // .take(images.length)
+    // .subscribe(data => {
+    //     console.log('Finished!', data);
+    // });
 
-// Rx.Observable.interval(1000) 
-//     .filter(i => i < images.length)
-//     .map(i => images[i])
-//     .mergeMap(image_info =>
-//         Rx.Observable.fromPromise(
-//           jimp.read(opts.DATASET_PATH + image_info.file_name)),
-//         (image_info, image) => ({image_info, image})
-//     )
-//     .subscribe(({image_info, image}) => {
-        
-//     })
+Rx.Observable.interval(1000) 
+    .filter(i => i < images.length)
+    .map(i => images[i])
+    .mergeMap(image_info =>
+        Rx.Observable.fromPromise(
+          jimp.read(opts.DATASET_PATH + image_info.file_name)),
+        (image_info, image) => ({image_info, image})
+    )
+    .subscribe(({image_info, image}) => {
+        if(image.bitmap.width >= opts.IMAGE_SIZE && image.bitmap.height >= opts.IMAGE_SIZE) {
+            console.log('Resizing ...', image_info.file_name, ' +++ ', image.bitmap.width, 'x', image.bitmap.height);
+            console.log('Saving to...', normalize_path + '/' + image_info.file_name);
+            image.cover(opts.IMAGE_SIZE, opts.IMAGE_SIZE)
+                .quality(100)
+                .write(normalize_path + '/' + image_info.file_name);
+        }
+    })
